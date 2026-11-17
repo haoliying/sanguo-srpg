@@ -479,6 +479,15 @@ body { min-height: 100vh; }
 }
 .rweather i { font-style: normal; font-size: 14px; margin-right: 4px; }
 .rweather span { display: block; color: var(--text-2); font-size: 11px; margin-top: 2px; }
+.rweather-scenario {
+  background: rgba(197,90,17,.08);
+  border: 1px solid rgba(197,90,17,.35);
+}
+.rweather-scenario b { color: #a05a10; font-size: 12px; }
+.rweather-scenario i {
+  display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center;
+  border-radius: 4px; background: #c55a11; color: #fff; font-size: 11px;
+}
 .rpanel-tip { margin-top: 10px; font-size: 11px; color: var(--text-2); }
 .rrow { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
 .rchip { cursor: pointer; }

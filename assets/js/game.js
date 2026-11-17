@@ -185,14 +185,7 @@
 
     core.ensureConnected(state);
     core.initOwnership(state);
-    // 定下开战日的天时：水战多风云，山地常雾雪
-    var wmap = (cfg.map && cfg.map.weather) || null;
-    if (!wmap) {
-      wmap = cfg.scene === 'water' ? ['clear', 'wind', 'rain', 'clear']
-        : cfg.scene === 'mountain' ? ['clear', 'fog', 'snow', 'cloudy']
-          : ['clear', 'cloudy', 'clear', 'wind'];
-    }
-    core.initWeather(state, state.rng ? wmap[Math.floor(state.rng() * wmap.length)] : 'clear');
+    setupScenario(state, cfg, false);
 
     // 攻城关：锁定敌城所在格；万一地图上没城，退回夺点，别出现打不赢的死局
     if (state.victory.type === 'city') {
@@ -220,6 +213,63 @@
 
     core.beginSideTurn(state, 'player');
     return state;
+  }
+
+  /**
+   * 剧本布置：名战役的天时、天气池与剧本、地形遗留物与情节标记。
+   * 新开局与恢复存档共用，恢复时 savedWeather 非空则沿用存档里的天象。
+   */
+  function setupScenario(state, cfg, restored) {
+    state.scenario = cfg.scenario || null;
+    var mw = (cfg.map && cfg.map.weather) || null;
+    if (mw) {
+      state.weatherPool = mw.pool || null;
+      state.weatherScript = mw.script || null;
+      state.weatherNotes = mw.notes || null;
+    }
+
+    if (restored && restored.weather) {
+      // 存档里带着天象与剧情进度：原样接续，别让读档改写天意
+      state.weather = restored.weather;
+      state.weatherStreak = restored.weatherStreak || 0;
+      state.weatherNext = restored.weatherNext || restored.weather;
+      state.rainDoused = !!restored.rainDoused;
+      state.fireLitTurn = restored.fireLitTurn || null;
+    } else {
+      core.initWeather(state, mw && mw.first ? mw.first : 'clear');
+    }
+
+    // 存档里带着遗留物（火场/洪水/乱石）：原样铺回战场
+    if (restored && restored.hazard) {
+      for (var ri = 0; ri < state.hazard.length && ri < restored.hazard.length; ri++) {
+        state.hazard[ri] = restored.hazard[ri] || 0;
+        state.hazardTurns[ri] = restored.hazardTurns ? (restored.hazardTurns[ri] || 0) : 0;
+      }
+      return;
+    }
+
+    /* 水淹七军：开战即是泽国——低洼处预先一片汪洋 */
+    var hzs = (cfg.scenario && cfg.scenario.hazards) || [];
+    for (var hi = 0; hi < hzs.length; hi++) {
+      var hz = hzs[hi];
+      var hx = hz.x, hy = hz.y;
+      if (cfg.map && cfg.map.mirrored) hx = 1 - hx;   // 地图镜像，淹没区也跟着翻
+      var cx0 = Math.max(0, Math.min(state.cols - 1, Math.round(hx * (state.cols - 1))));
+      var cy0 = Math.max(0, Math.min(state.rows - 1, Math.round(hy * (state.rows - 1))));
+      var rr = Math.max(1, Math.round(hz.r * Math.min(state.cols, state.rows)));
+      for (var yy = cy0 - rr; yy <= cy0 + rr; yy++) {
+        for (var xx = cx0 - rr; xx <= cx0 + rr; xx++) {
+          if (xx < 0 || yy < 0 || xx >= state.cols || yy >= state.rows) continue;
+          var dd = Math.hypot(xx - cx0, yy - cy0);
+          if (dd > rr * (0.82 + 0.3 * ((xx * 31 + yy * 17) % 10) / 10)) continue;   // 边缘犬牙交错
+          var tt = core.tileAt(state, xx, yy);
+          if (tt.key === 'mountain' || tt.key === 'wall' || tt.key === 'void' ||
+              tt.key === 'city' || tt.key === 'hill') continue;
+          core.setHaz(state, xx, yy, core.HAZ.FLOOD, 12);
+        }
+      }
+      state.events.push({ t: 'note', text: '汉水暴涨，低洼之处已成泽国！' });
+    }
   }
 
   /* ------------------------------------------------------------------ *
@@ -351,6 +401,14 @@
       victory: state.victory,
       turnLimit: state.turnLimit,
       capturePoints: state.capturePoints,
+      // 天时与剧情进度、战场遗留物一并入档，读档后天意不改
+      weather: state.weather || null,
+      weatherStreak: state.weatherStreak || 0,
+      weatherNext: state.weatherNext || null,
+      rainDoused: !!state.rainDoused,
+      fireLitTurn: state.fireLitTurn || null,
+      hazard: state.hazard ? Array.prototype.slice.call(state.hazard) : null,
+      hazardTurns: state.hazardTurns ? Array.prototype.slice.call(state.hazardTurns) : null,
       units: state.units.map(function (u) {
         return {
           heroId: u.heroId, level: u.level, side: u.side,
@@ -364,7 +422,7 @@
 
   function restore(saved) {
     var cfg = data.levelConfig(saved.level);
-    var m = core.generateMap(cfg);
+    var m = core.generateMap(cfg.map || cfg);
     var state = {
       level: saved.level,
       config: cfg,
@@ -389,6 +447,8 @@
       u.buffs = s.buffs || {};
       state.units.push(u);
     });
+    // 天时、剧本进度与战场遗留物：按存档接续（无存档信息则按剧本重布）
+    setupScenario(state, cfg, saved);
     return state;
   }
 

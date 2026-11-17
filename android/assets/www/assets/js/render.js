@@ -84,6 +84,102 @@
   };
 
   /* ------------------------------------------------------------------ *
+   * 季节主题：同一套地貌，不同节令各有其色。
+   * 主题只描述「各组地形往哪个色调偏」，基础色仍出自 PAL，
+   * 明暗两版共用同一组偏移（暗色版幅度减半，免得糊成一团）。
+   * ------------------------------------------------------------------ */
+  var THEME_GROUPS = {
+    veg: { grass: 1, forest: 1, marsh: 1, downs: 1 },
+    ground: { plain: 1, road: 1, path: 1 },
+    water: { river: 1, lake: 1, ford: 1 },
+    rock: { hill: 1, mountain: 1, wall: 1 },
+    built: { bridge: 1, ship: 1, camp: 1, city: 1 }
+  };
+
+  var THEMES = {
+    /* 中原暮春——草长莺飞 */
+    spring:      { veg: [0, 10, 6],    water: [0, 6, 10] },
+    /* 两京焦土——董卓一把火烧过 */
+    scorched:    { veg: [-26, 4, -16], ground: [12, -4, -12], rock: [8, 0, -8], water: [-6, -8, -4] },
+    /* 中原秋——麦浪金黄 */
+    autumn:      { veg: [26, 2, -20],  ground: [10, 0, -8], rock: [10, 0, -8] },
+    /* 官渡深秋——草木摇落 */
+    lateautumn:  { veg: [30, 4, -24],  ground: [12, -2, -10], water: [-4, -8, -6], rock: [12, 2, -12] },
+    /* 河北初冬——霜色初染 */
+    earlywinter: { veg: [-12, 2, 18],  ground: [8, 4, 12], water: [10, 14, 18], rock: [10, 8, 14] },
+    /* 大江夏汛——水阔天低 */
+    riverland:   { veg: [-8, 8, -4],   water: [-10, -6, 12] },
+    /* 荆襄水乡——河湖青碧 */
+    waterland:   { veg: [-4, 8, 2],    water: [6, 4, -6] },
+    /* 蜀山苍翠——层峦叠障 */
+    shu:         { veg: [-14, 4, 0],   ground: [-6, 2, -4], rock: [-8, 2, -6] },
+    /* 汉中金秋 */
+    goldautumn:  { veg: [34, 6, -24],  ground: [14, 2, -6], rock: [12, 2, -10] },
+    /* 襄樊秋雨——铅云低垂 */
+    autumnrain:  { veg: [-12, -6, 2],  ground: [-8, -6, 2], water: [4, 6, 10], rock: [-8, -6, 2] },
+    /* 夷陵盛夏——林深似海 */
+    deepforest:  { veg: [-22, -2, -8], ground: [-10, -4, -2] },
+    /* 陇上萧瑟——风沙漫道 */
+    desolate:    { veg: [6, -8, -14],  ground: [6, -4, -10], rock: [8, -2, -12] },
+    /* 五丈原秋暮——残阳如血 */
+    autumndusk:  { veg: [28, 4, -14],  ground: [16, 4, -4], water: [14, 8, 2], rock: [16, 4, -8] },
+    /* 江南暮春——草长莺飞又一村 */
+    jiangnan:    { veg: [4, 14, 8],    water: [8, 10, 12] },
+    /* 赤壁夜战——江面映着冲天火光 */
+    chibi:       { veg: [-6, 2, 0],    ground: [10, 2, -4], water: [20, 4, -10], rock: [12, 2, -6] },
+    /* 将星黄昏——暮色四合 */
+    dusk:        { veg: [16, 2, -8],   ground: [12, 4, -6], water: [16, 10, 4], rock: [14, 4, -8] }
+  };
+
+  /** 同一主题下的微变体：同章四关，色调各有先后阴晴 */
+  var THEME_VARIANTS = [
+    [0, 0, 0], [8, 0, -6], [-6, 4, 8], [4, -6, 10]
+  ];
+
+  var themeName = '', themeVariant = 0;
+  var themeCache = null, themeCacheKey = '';
+  render.setTheme = function (name, variant) {
+    themeName = name || '';
+    themeVariant = variant || 0;
+  };
+
+  function shiftHex(col, dr, dg, db) {
+    if (col.charAt(0) !== '#') return col;
+    var n = parseInt(col.slice(1), 16);
+    var r = Math.max(0, Math.min(255, ((n >> 16) & 255) + dr));
+    var g = Math.max(0, Math.min(255, ((n >> 8) & 255) + dg));
+    var b = Math.max(0, Math.min(255, (n & 255) + db));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+  }
+
+  /** 当前主题下的完整调色板（按明暗与变体缓存） */
+  function themePal(dark) {
+    var key = themeName + '|' + themeVariant + '|' + (dark ? 'd' : 'l');
+    if (themeCacheKey === key) return themeCache;
+    var base = dark ? PAL.dark : PAL.light;
+    var mod = THEMES[themeName];
+    if (!mod) { themeCache = base; themeCacheKey = key; return base; }
+    var vd = THEME_VARIANTS[themeVariant % THEME_VARIANTS.length];
+    var dim = dark ? 0.55 : 1;
+    var out = {}, k;
+    for (k in base) {
+      var g = null;
+      if (THEME_GROUPS.veg[k]) g = mod.veg;
+      else if (THEME_GROUPS.ground[k]) g = mod.ground;
+      else if (THEME_GROUPS.water[k]) g = mod.water;
+      else if (THEME_GROUPS.rock[k]) g = mod.rock;
+      else if (THEME_GROUPS.built[k]) g = mod.built || mod.ground;
+      if (!g) { out[k] = base[k]; continue; }
+      out[k] = base[k].map(function (c) {
+        return shiftHex(c, Math.round((g[0] + vd[0]) * dim),
+          Math.round((g[1] + vd[1]) * dim), Math.round((g[2] + vd[2]) * dim));
+      });
+    }
+    themeCache = out; themeCacheKey = key;
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *
    * 图片缓存
    * ------------------------------------------------------------------ */
 
@@ -237,7 +333,7 @@
     }
 
     function pal(key) {
-      var p = isDark() ? PAL.dark : PAL.light;
+      var p = themePal(isDark());
       return p[key] || p.plain;
     }
 

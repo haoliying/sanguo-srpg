@@ -130,6 +130,11 @@
     } else {
       state.hazard[k] = v;
       state.hazardTurns[k] = turns === undefined ? (d ? d.turns : 2) : turns;
+      // 上方谷剧本：头一回点着谷中火，便记下时辰——两轮后天降骤雨
+      if (v === HAZ.FIRE && state.scenario && state.scenario.flags &&
+          state.scenario.flags.rainDouse && !state.fireLitTurn) {
+        state.fireLitTurn = state.turn;
+      }
     }
   }
 
@@ -593,6 +598,11 @@
   function pickWeatherKey(state, curKey) {
     var forced = (state.weatherStreak || 0) >= 3;
     if (!forced && state.rng() < 0.45) return curKey;      // 天时该是变数，不宜一成不变
+    // 剧本天象池：本关的天时只在池子里打转（华容道终是雨，三江口终是雾）
+    if (state.weatherPool && state.weatherPool.length) {
+      var pk = state.weatherPool[Math.floor(state.rng() * state.weatherPool.length)];
+      if (WEATHER[pk]) return pk;
+    }
     var pool = [], total = 0, k;
     for (k in WEATHER) {
       if (k === curKey) continue;
@@ -619,6 +629,46 @@
   function advanceWeather(state) {
     state.events = state.events || [];
     var cur = state.weather || 'clear';
+
+    /* 上方谷：谷中火起两轮之后，天降骤雨，烈焰尽灭——天不助汉 */
+    if (state.fireLitTurn && !state.rainDoused &&
+        state.turn - state.fireLitTurn >= 2) {
+      state.rainDoused = true;
+      var doused = 0;
+      if (state.hazard) {
+        for (var fi = 0; fi < state.hazard.length; fi++) {
+          if (state.hazard[fi] === HAZ.FIRE) {
+            state.hazard[fi] = 0;
+            if (state.hazardTurns) state.hazardTurns[fi] = 0;
+            if (state.burning) state.burning[fi] = 0;
+            doused++;
+          }
+        }
+      }
+      state.weather = 'rain';
+      state.weatherStreak = 0;
+      state.events.push({
+        t: 'weather', weather: 'rain', from: cur,
+        note: doused ? '骤雨倾盆，谷中烈焰尽灭——天不助汉！' : '骤雨忽至，谷中再难点火——天不助汉！'
+      });
+      state.weatherNext = pickWeatherKey(state, 'rain');
+      return state.weather;
+    }
+
+    /* 剧本天时：赤壁第三轮必起东南风，天意如此 */
+    var scripted = state.weatherScript && state.weatherScript[state.turn];
+    if (scripted && WEATHER[scripted]) {
+      var fromKey = cur;
+      state.weather = scripted;
+      state.weatherStreak = 0;
+      state.events.push({
+        t: 'weather', weather: scripted, from: fromKey,
+        note: (state.weatherNotes && state.weatherNotes[state.turn]) || null
+      });
+      state.weatherNext = pickWeatherKey(state, state.weather);
+      return state.weather;
+    }
+
     var next = state.weatherNext || cur;
     if (next !== cur) {
       state.weather = WEATHER[next] ? next : cur;

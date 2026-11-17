@@ -40,6 +40,7 @@
     selected = null; aiming = false; locked = false; inspect = null;
     onFinish = done;
     speedFactor = store.settings().animSpeed || 1;
+    applyTheme();
 
     canvas = ui.$('#bt-canvas');
     renderer = createRenderer();
@@ -56,6 +57,10 @@
     setSheet(false);
     setRoster(false);
     loop();
+    // 名战役开场白：天时地利先说分明
+    if (state.scenario) {
+      ui.toast('【' + state.scenario.tag + '】' + state.scenario.note);
+    }
     store.saveBattle(game.serialize(state));
     return state;
   };
@@ -66,6 +71,7 @@
     selected = null; aiming = false; locked = false; inspect = null;
     onFinish = done;
     speedFactor = store.settings().animSpeed || 1;
+    applyTheme();
 
     canvas = ui.$('#bt-canvas');
     renderer = createRenderer();
@@ -85,6 +91,13 @@
     renderer = render.create(canvas);
     renderer.setSpeed(speedFactor);
     return renderer;
+  }
+
+  /** 章节节令：这一仗在什么季节什么时辰开打，整张战场的颜色随之而变 */
+  function applyTheme() {
+    if (!state) return;
+    var theme = (state.config && state.config.map && state.config.map.theme) || '';
+    render.setTheme(theme, (state.level || 0) % 4);
   }
 
   B.stop = function () {
@@ -762,9 +775,10 @@
         break;
       case 'weather': {
         var wx = core.WEATHER[e.weather];
-        if (wx) ui.toast('天时变幻：' + wx.name + '——' + wx.desc);
+        if (e.note) ui.toast(e.note);            // 剧情天时：东南风起、骤雨浇火
+        else if (wx) ui.toast('天时变幻：' + wx.name + '——' + wx.desc);
         bumpView();
-        delay = 420;
+        delay = e.note ? 900 : 420;              // 天意大事，让人看清这一幕
         break;
       }
       case 'buff':
@@ -1084,9 +1098,12 @@
         '</div>';
     }
     var weather = core.weather(state);
+    var sc = state.scenario;
     box.innerHTML =
       '<div class="rpanel-head"><b>全军一览</b>' +
       '<button class="icon-btn" id="bt-roster-close">×</button></div>' +
+      (sc ? '<div class="rweather rweather-scenario"><i>旗</i><b>' + ui.esc(sc.tag) + '</b>' +
+        '<span>' + ui.esc(sc.note) + '</span></div>' : '') +
       '<div class="rweather"><i>' + weather.icon + '</i>' + ui.esc(weather.name) +
       '<span>' + ui.esc(weather.desc) + '</span></div>' +
       '<div class="rrow"><span class="rlabel rlabel-me">我军</span>' + mine.map(chip).join('') + '</div>' +

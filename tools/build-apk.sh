@@ -15,8 +15,8 @@ PY="${PYTHON:-python3}"
 
 # ---- SDK 位置：优先用 ANDROID_HOME，其次本机 .cache ----
 SDK="${ANDROID_HOME:-$(cd "$ROOT/.." && pwd)/.cache/sdk}"
-BT="$SDK/build-tools/34.0.0"
-PLAT="$SDK/platforms/android-34"
+BT="${ANDROID_BUILD_TOOLS:-$SDK/build-tools/34.0.0}"
+PLAT="${ANDROID_PLATFORM:-$SDK/platforms/android-34}"
 
 VERSION_CODE=1
 VERSION_NAME=1.0.0

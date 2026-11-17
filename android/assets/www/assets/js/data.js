@@ -957,10 +957,105 @@
     if (s.trails) s.trails = Math.round(s.trails * 1.8);
   }
 
+  /* ------------------------------------------------------------------ *
+   * 名战役剧本：天气与地形皆按演义情节定制
+   *
+   * 普通关卡的地图配方只认「章节战场」，同章各关难免雷同；
+   * 这些演义名局则各有各的天时地利：
+   *   长社的夜风、三江口的大雾、赤壁的东南风、华容道的泥泞、
+   *   樊城的连绵秋雨、连营的冲天火风、上方谷那场浇灭汉室的骤雨。
+   * ------------------------------------------------------------------ */
+  var SCENARIOS = {
+    3: {
+      tag: '火攻长社', note: '贼军依草结营，夜风正紧——一把火可燎原',
+      weather: { first: 'wind', pool: ['wind', 'clear', 'cloudy', 'wind'] },
+      spec: { grass: 0.42, forest: 0.10, downs: 0.10 }
+    },
+    24: {
+      tag: '夜袭乌巢', note: '月黑风高，正宜纵火焚粮——烧尽袁军粮草，十万大军自溃',
+      weather: {
+        first: 'cloudy', pool: ['cloudy', 'wind', 'clear'],
+        script: { 4: 'wind' }, notes: { 4: '夜风骤起，火借风势——乌巢粮营烈焰冲天！' }
+      },
+      vtype: 'annihilate',
+      camps: [{ x: 0.24, y: 0.24, owner: 'enemy' }, { x: 0.33, y: 0.31, owner: 'enemy' }]
+    },
+    39: {
+      tag: '草船借箭', note: '大雾漫江，三尺之外不辨人马——弓弩尽失其准',
+      weather: { first: 'fog', pool: ['fog', 'fog', 'cloudy', 'clear'] }
+    },
+    40: {
+      tag: '赤壁火攻', note: '连环战船锁住大江——只等东南风起，一把火烧尽曹军楼船！',
+      weather: {
+        first: 'clear', pool: ['clear', 'cloudy', 'clear'],
+        script: { 3: 'wind' }, notes: { 3: '东南风大起！火借风势，樯橹灰飞烟灭！' }
+      },
+      vtype: 'annihilate', theme: 'chibi'
+    },
+    41: {
+      tag: '乌林追击', note: '烈火焚余，泽国泥泞——曹军人困马乏，正好穷追',
+      weather: { first: 'cloudy', pool: ['rain', 'cloudy', 'rain', 'clear'] },
+      spec: { marsh: 0.18 }
+    },
+    42: {
+      tag: '华容道', note: '道路泥泞，人马皆陷——关羽横刀立马，只为义释曹操',
+      weather: { first: 'rain', pool: ['rain', 'rain', 'cloudy', 'wind'] },
+      spec: { marsh: 0.26, trails: 3 }
+    },
+    65: {
+      tag: '水淹七军', note: '秋雨连绵，汉水暴涨——七军困于泽国，于禁乞降，庞德殒身',
+      weather: { first: 'rain', pool: ['rain', 'rain', 'cloudy', 'rain', 'clear'] },
+      vtype: 'annihilate',
+      hazards: [
+        { x: 0.42, y: 0.38, r: 0.13, kind: 'flood' },
+        { x: 0.63, y: 0.33, r: 0.10, kind: 'flood' },
+        { x: 0.5, y: 0.56, r: 0.09, kind: 'flood' }
+      ]
+    },
+    73: {
+      tag: '火烧连营', note: '七百里连营皆在林间——风起时，一点星火可燎遍吴营',
+      weather: { first: 'wind', pool: ['wind', 'clear', 'wind', 'cloudy'] },
+      vtype: 'annihilate',
+      spec: { forest: 0.38 }
+    },
+    79: {
+      tag: '街亭之失', note: '当道下寨已迟，山上无水——死守孤山，等待大军回援',
+      weather: { first: 'fog', pool: ['fog', 'cloudy', 'clear', 'cloudy'] },
+      vtype: 'survive'
+    },
+    87: {
+      tag: '上方谷', note: '葫芦谷口已布好干柴——引魏军入谷，火起之日便是司马懿的死期。然而天意……',
+      weather: { first: 'clear', pool: ['clear', 'cloudy', 'clear', 'wind'] },
+      vtype: 'boss',
+      flags: { rainDouse: true }
+    },
+    88: {
+      tag: '星落五丈原', note: '秋风萧瑟，五丈原上将星摇摇欲坠',
+      weather: { first: 'wind', pool: ['wind', 'cloudy', 'wind', 'clear'] },
+      theme: 'dusk'
+    }
+  };
+
+  /** 章节战场各有各的节令，调色与常见天象皆由此定 */
+  var CHAPTER_THEME = {
+    1: 'spring', 2: 'scorched', 3: 'autumn', 4: 'lateautumn', 5: 'earlywinter',
+    6: 'riverland', 7: 'waterland', 8: 'shu', 9: 'goldautumn', 10: 'autumnrain',
+    11: 'deepforest', 12: 'desolate', 13: 'autumndusk', 14: 'jiangnan'
+  };
+
+  /** 各战场的天象池：北方多风雪，江东多雨雾，蜀地常雾 */
+  var SCENE_WEATHER = {
+    plains: ['clear', 'clear', 'cloudy', 'wind', 'rain', 'clear', 'snow'],
+    city: ['clear', 'cloudy', 'wind', 'rain', 'clear', 'fog'],
+    water: ['clear', 'wind', 'rain', 'fog', 'clear', 'wind', 'rain'],
+    mountain: ['clear', 'fog', 'cloudy', 'snow', 'clear', 'rain']
+  };
+
   function buildMapSpec(level, ch, rnd) {
     var t = (level - 1) / (TOTAL_LEVELS - 1);
     var idx = (level - ch.from) % ch.names.length;
     var battle = ch.names[idx];
+    var scenario = SCENARIOS[level] || null;
     // 战场放大到约 48×42 ~ 56×50（面积约为原先的 4.5~6 倍）。
     // 图一大，山河才铺得开：长江能画出宽窄与九曲，山峦能连绵起伏，
     // 各处地形也不必再挤作一团。
@@ -1166,8 +1261,74 @@
         break;
     }
 
+    /* ---- 剧本关卡：地形与天时按演义情节覆盖 ---- */
+    if (scenario) {
+      var so = scenario.spec || {}, sk;
+      for (sk in so) spec[sk] = so[sk];
+      if (scenario.camps) {
+        for (var sc = 0; sc < scenario.camps.length; sc++) spec.camps.push(scenario.camps[sc]);
+      }
+      if (scenario.theme) spec.theme = scenario.theme;
+    }
+
+    /* ---- 天时：每关开局各不相同 ---- */
+    var wpool = SCENE_WEATHER[ch.scene] || SCENE_WEATHER.plains;
+    spec.weather = {
+      first: wpool[idx % wpool.length],
+      pool: wpool
+    };
+    if (scenario && scenario.weather) {
+      spec.weather.first = scenario.weather.first;
+      if (scenario.weather.pool) spec.weather.pool = scenario.weather.pool;
+      if (scenario.weather.script) spec.weather.script = scenario.weather.script;
+      if (scenario.weather.notes) spec.weather.notes = scenario.weather.notes;
+    }
+
+    /* ---- 章节节令：同一片战场，不同关卡也有早晚阴晴之别 ---- */
+    if (!spec.theme) spec.theme = CHAPTER_THEME[ch.id] || 'spring';
+
+    /* ---- 左右镜像：同章相邻两关，山河走向相反，一眼便知换了战场 ---- */
+    if (idx % 2 === 1) mirrorSpec(spec);
+
     scaleSpec(spec);
     return spec;
+  }
+
+  /** 东西镜像一份地图配方：山川湖泊营垒全部左右翻转，关卡外观不再千篇一律 */
+  function mirrorSpec(spec) {
+    spec.mirrored = true;
+    var i;
+    for (i = 0; i < (spec.rivers || []).length; i++) {
+      var r = spec.rivers[i];
+      if (r.axis === 'v') {
+        r.at = 1 - r.at;
+      } else if (r.bridges) {
+        // 东西镜像后，桥所在的列也要跟着翻过去
+        r.bridges = r.bridges.map(function (b) { return (spec.cols - 1) - b; });
+      }
+      if (r.axis === 'h' && r.fords) {
+        r.fords = r.fords.map(function (b) { return (spec.cols - 1) - b; });
+      }
+    }
+    for (i = 0; i < (spec.ranges || []).length; i++) {
+      if (spec.ranges[i].axis === 'v') spec.ranges[i].at = 1 - spec.ranges[i].at;
+    }
+    function fx(p) { if (p && p.x !== undefined) p.x = 1 - p.x; }
+    (spec.lakes || []).forEach(fx);
+    (spec.peaks || []).forEach(fx);
+    (spec.cities || []).forEach(fx);
+    (spec.camps || []).forEach(fx);
+    (spec.ships || []).forEach(fx);
+    (spec.flag) && fx(spec.flag);
+    for (i = 0; i < (spec.walls || []).length; i++) {
+      var w = spec.walls[i];
+      if (w.axis === 'h') {
+        var from = w.from, to = w.to;
+        w.from = 1 - to; w.to = 1 - from;
+      } else {
+        w.at = 1 - w.at;
+      }
+    }
   }
 
   /** 按胜利条件补上据点：夺旗关需要数处敌寨，斩将关只需一座中军大营 */
@@ -1238,6 +1399,9 @@
     else if (level <= 78) vtype = ['flag', 'survive', 'boss', 'city', 'escort', 'capture'][level % 6];
     else vtype = ['boss', 'flag', 'city', 'capture'][level % 4];
     if (isLast) vtype = 'boss';
+    // 名战役按演义定制胜负：赤壁要焚尽曹军，水淹七军要全歼于禁七军
+    var scenario = SCENARIOS[level] || null;
+    if (scenario && scenario.vtype) vtype = scenario.vtype;
     // 斩将关必须真有一位主将可斩，否则全军杀尽也判不了胜 —— 只能耗到回合尽头
     if (vtype === 'boss') useBoss = true;
 
@@ -1311,6 +1475,7 @@
       title: '第 ' + level + ' 关 · ' + battleName,
       story: ch.story,
       scene: ch.scene,
+      scenario: scenario,
       seed: 1000 + level * 37,
       cols: mapSpec.cols, rows: mapSpec.rows,
       map: mapSpec,                    // 交给 core.generateMap 的地形配方
@@ -1344,6 +1509,7 @@
   data.HEROES = HEROES;
   data.HERO_MAP = HERO_MAP;
   data.CHAPTERS = CHAPTERS;
+  data.SCENARIOS = SCENARIOS;
   data.UNLOCKS = UNLOCKS;
   data.STARTERS = STARTERS;
   data.TOTAL_LEVELS = TOTAL_LEVELS;
