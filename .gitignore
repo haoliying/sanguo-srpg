@@ -1,0 +1,17 @@
+# Build intermediates
+android/build/
+
+# Signing key (do NOT commit)
+*.keystore
+*.idsig
+*.jks
+
+# Logs
+*.log
+
+# Test screenshots
+tools/shots/
+
+# OS
+Thumbs.db
+.DS_Store

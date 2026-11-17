@@ -1,0 +1,20 @@
+{
+  "name": "三国战棋",
+  "short_name": "三国战棋",
+  "description": "还原三国演义著名战役的回合制战棋游戏，100 关由易到难",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2ece1",
+  "theme_color": "#a02c2c",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
