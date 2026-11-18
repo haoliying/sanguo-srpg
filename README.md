@@ -1,5 +1,12 @@
 # 三国战棋
 
+> ## 📦 下载安装（安卓 APK）
+>
+> **[👉 点此下载最新版 sanguo-v1.0.0.apk（2.0MB）](https://github.com/haoliying/sanguo-srpg/releases/download/v1.0.0/sanguo-v1.0.0.apk)**
+>
+> 也可到 **[Releases 页面](https://github.com/haoliying/sanguo-srpg/releases)** 挑选版本；仓库源码中的 [`dist/sanguo-v1.0.0.apk`](dist/sanguo-v1.0.0.apk) 是同一文件。
+> 下载后直接在安卓手机上打开安装（已签名；若提示「未知来源」，允许本次安装即可）。
+
 还原《三国演义》著名战役的回合制战棋游戏，Web 与安卓 App 双端可用，100 关由易到难。
 
 ## 玩法
